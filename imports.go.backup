@@ -1,0 +1,143 @@
+package cprofile
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"go/build"
+	"go/importer"
+	"go/types"
+	"os"
+	"path/filepath"
+	"runtime"
+	"sort"
+	"strings"
+)
+
+// Imports contains the import structure
+type Imports struct {
+	packages []string
+}
+
+type importReadData struct {
+	packages map[string]bool
+}
+
+// NewImports creates a new Imports struct
+func NewImports() *Imports {
+	return &Imports{}
+}
+
+// Read loads the import chain.
+func (i *Imports) Read(ctx context.Context, base string) error {
+	if i == nil {
+		return errors.New("No pointer receiver")
+	}
+
+	fmt.Printf("Go root: %s\n", runtime.GOROOT())
+	// fmt.Printf("Tool dir: %s\n", build.ToolDir)
+	// fmt.Printf("Default:\n%#v\n", build.Default)
+
+	ird := &importReadData{packages: map[string]bool{}}
+	select {
+	case <-ctx.Done():
+		return context.Canceled
+	default:
+		p, err := build.Default.ImportDir(base, 0)
+		if err != nil {
+			return err
+		}
+
+		for _, v := range p.Imports {
+			err := i.read(ctx, ird, v, 0)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	result := make([]string, len(ird.packages))
+	idx := 0
+	for k := range ird.packages {
+		result[idx] = k
+		idx++
+	}
+
+	sort.Strings(result)
+	i.packages = result
+
+	return nil
+}
+
+func (i *Imports) read(ctx context.Context, ird *importReadData, packageName string, depth int) error {
+	select {
+	case <-ctx.Done():
+		return context.Canceled
+	default:
+		fmt.Printf("%s>> %s (is local: %t)\n", strings.Repeat("  ", depth), packageName, build.IsLocalImport(packageName))
+
+		cwd, err := os.Getwd()
+		if err != nil {
+			// Failed to get the current working directory.  Wat.
+			return err
+		}
+		trueCwd, err := filepath.EvalSymlinks(cwd)
+		if err != nil {
+			// Failed to eval any symlinks.  Wat.
+			return err
+		}
+
+		// Can't find `golang_org/x/net/route`
+		// Which is vendored at `/usr/local/Cellar/go/1.8.3/libexec/src/vendor/golang_org/x/net/route`
+		if packageName == "golang_org/x/net/route" {
+			fmt.Printf("DANGER DANGER DANGER\n")
+			fmt.Printf("true cwd: %s\n", trueCwd)
+			if build.Default.HasSubdir != nil {
+				rel, ok := build.Default.HasSubdir(runtime.GOROOT(), ".")
+				fmt.Printf("rel: %s\nok: %t\n", rel, ok)
+			} else {
+				fmt.Printf("HasSubdir not implemented\n")
+			}
+		}
+
+		p, err := build.Default.Import(packageName, trueCwd, 0)
+		if err != nil {
+			fmt.Printf("Partial package information:\n%#v\n", p)
+			return err
+		}
+
+		for _, v := range p.Imports {
+			// Ignore the "C" pseudo package and packages that we have
+			// already seen.
+			if v == "C" {
+				continue
+			}
+			if _, ok := ird.packages[v]; ok {
+				continue
+			}
+
+			// Dig deeper.
+			ird.packages[v] = true
+			err := i.read(ctx, ird, v, depth+1)
+			if err != nil {
+				if iErr, ok := err.(ImportError); ok {
+					iErr.AddPackage(p)
+					return iErr
+				}
+				fmt.Printf("***\n%#v\n", p.Imports)
+				return NewImportError(v, p, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// Flatlist returns a flat, alphabetically sorted list of package names
+func (i *Imports) Flatlist() []string {
+	if i == nil {
+		return []string{}
+	}
+
+	return i.packages
+}

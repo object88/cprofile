@@ -1,0 +1,30 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch cprofile imports",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceRoot}/main/main.go",
+      "cwd": "${workspaceRoot}",
+      "args": ["imports", "main"]
+    },
+    {
+      "name": "Launch cprofile",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceRoot}/main/main.go",
+      "cwd": "${workspaceRoot}",
+      "args": ["run", "-b", "./test/routines/routines", "-p", "./test/routines/cpu.prof"]
+    },
+    {
+      "name": "Launch file",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceRoot}/test/routines/main.go"
+    }
+  ]
+}
