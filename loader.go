@@ -93,19 +93,20 @@ func (l *Loader) load(ctx context.Context, program *Program, base string, depth 
 
 		astf, err := parser.ParseFile(pkg.fset, fpath, nil, 0)
 		if err != nil {
-			return err
+			fmt.Printf("Got error while parsing file '%s':\n%s\n", fpath, err.Error())
+			// return err
 		}
 
 		name := astf.Name.Name
-		pkg, found := astPkgs[name]
+		astPkg, found := astPkgs[name]
 		if !found {
-			pkg = &ast.Package{
+			astPkg = &ast.Package{
 				Name:  name,
 				Files: make(map[string]*ast.File),
 			}
-			astPkgs[name] = pkg
+			astPkgs[name] = astPkg
 		}
-		pkg.Files[fpath] = astf
+		astPkg.Files[fpath] = astf
 	}
 
 	for k, v := range astPkgs {
@@ -119,7 +120,8 @@ func (l *Loader) load(ctx context.Context, program *Program, base string, depth 
 
 		p, err := l.config.Check(k, pkg.fset, *pkg.asts, pkg.info)
 		if err != nil {
-			return err
+			fmt.Printf("Got error checking package '%s':\n%s\n", k, err.Error())
+			// return err
 		}
 		id := base
 		fmt.Printf("%s-- Adding key '%s'\n", spacer, id)
