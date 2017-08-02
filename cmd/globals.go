@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/object88/cprofile"
 	"github.com/spf13/cobra"
@@ -34,8 +35,11 @@ var globalsCmd = &cobra.Command{
 			return
 		}
 
-		for k, v := range pkg.Globals() {
-			fmt.Printf("%d: %s\n", k, v)
+		globals := pkg.Globals()
+		sort.Strings(globals)
+
+		for _, v := range globals {
+			fmt.Printf("%s\n", v)
 		}
 	},
 }

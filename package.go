@@ -32,21 +32,32 @@ func (p *Package) Globals() []string {
 		return []string{}
 	}
 
+	globals := map[string]string{}
 	for k, def := range p.info.Defs {
-		fmt.Printf("*** %s:\n", k.Name)
-		fmt.Printf("\tpos: %#v\n", k.Pos())
-		if def != nil {
-			fmt.Printf("\tpkg: %#v\n", def.Pkg())
-			fmt.Printf("\ttype: %#v\n\n", def.Type())
+		if def == nil {
+			continue
 		}
 
-		fmt.Printf("\t%#v\n", def)
-		// v := types.NewVar(k.Pos(), def.Pkg(), k.Name, def.Type())
-		// scope := v.Parent()
-		// fmt.Printf("scope: %#v\n", scope)
+		switch v := def.(type) {
+		case *types.Var:
+			parent := v.Parent()
+			grandparent := parent.Parent()
+			if grandparent != types.Universe {
+				continue
+			}
+			globals[k.Name] = p.fset.Position(k.Pos()).String()
+		default:
+			continue
+		}
 	}
 
-	return []string{}
+	results := make([]string, len(globals))
+	i := 0
+	for k, v := range globals {
+		results[i] = fmt.Sprintf("%s: %s", k, v)
+	}
+
+	return results
 }
 
 // Imports returns the list of packages imported by this package
