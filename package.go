@@ -1,6 +1,7 @@
 package cprofile
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -23,6 +24,29 @@ func newPkg(name string) *Package {
 	}
 
 	return &Package{nil, fset, info, name}
+}
+
+// Globals returns a list of global variables in the package
+func (p *Package) Globals() []string {
+	if p == nil {
+		return []string{}
+	}
+
+	for k, def := range p.info.Defs {
+		fmt.Printf("*** %s:\n", k.Name)
+		fmt.Printf("\tpos: %#v\n", k.Pos())
+		if def != nil {
+			fmt.Printf("\tpkg: %#v\n", def.Pkg())
+			fmt.Printf("\ttype: %#v\n\n", def.Type())
+		}
+
+		fmt.Printf("\t%#v\n", def)
+		// v := types.NewVar(k.Pos(), def.Pkg(), k.Name, def.Type())
+		// scope := v.Parent()
+		// fmt.Printf("scope: %#v\n", scope)
+	}
+
+	return []string{}
 }
 
 // Imports returns the list of packages imported by this package

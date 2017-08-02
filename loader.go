@@ -109,6 +109,10 @@ func (l *Loader) load(ctx context.Context, program *Program, base string, depth 
 		astPkg.Files[fpath] = astf
 	}
 
+	if program.pkg == nil {
+		program.pkg = pkg
+	}
+
 	for k, v := range astPkgs {
 		if !strings.HasSuffix(fpath, k) {
 			fmt.Printf("fpath = '%s'\n", fpath)

@@ -3,16 +3,15 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"sort"
 
 	"github.com/object88/cprofile"
 	"github.com/spf13/cobra"
 )
 
-var importsCmd = &cobra.Command{
-	Use:   "imports",
-	Short: "Print the imports.",
-	Long:  "Gets the de-duplicated list of imports.",
+var globalsCmd = &cobra.Command{
+	Use:   "globals",
+	Short: "Returns list of instances of global variables.",
+	Long:  "Returns the list of global variables for a program, with file name and offsets.",
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx, cancelFn := context.WithCancel(context.Background())
 		defer cancelFn()
@@ -29,17 +28,14 @@ var importsCmd = &cobra.Command{
 			return
 		}
 
-		pkgs := p.Imports()
-		if len(pkgs) == 0 {
+		pkg, err := p.Package()
+		if err != nil {
+			fmt.Printf("Got error: %s\n", err.Error())
 			return
 		}
 
-		sort.Slice(pkgs, func(i, j int) bool {
-			return pkgs[i].Name() < pkgs[j].Name()
-		})
-
-		for _, v := range pkgs {
-			cmd.Printf("%s\n", v.Name())
+		for k, v := range pkg.Globals() {
+			fmt.Printf("%d: %s\n", k, v)
 		}
 	},
 }
