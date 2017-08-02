@@ -8,7 +8,6 @@ import (
 	"go/build"
 	"go/importer"
 	"go/parser"
-	"go/token"
 	"go/types"
 	"os"
 	"path"
@@ -16,23 +15,11 @@ import (
 	"strings"
 )
 
-// Program is not used
-type Program struct {
-}
-
 // Loader will load code into an AST
 type Loader struct {
 	config  *types.Config
-	pkgs    map[string]*pkg
 	ps      map[string]*types.Package
 	srcDirs []string
-}
-
-type pkg struct {
-	asts     *[]*ast.File
-	complete bool
-	fset     *token.FileSet
-	info     *types.Info
 }
 
 // NewLoader constructs a new Loader struct
@@ -44,24 +31,13 @@ func NewLoader() *Loader {
 		Importer: importer.Default(),
 	}
 	srcDirs := build.Default.SrcDirs()
-	return &Loader{config, map[string]*pkg{}, map[string]*types.Package{}, srcDirs}
-}
-
-func newPkg() *pkg {
-	fset := token.NewFileSet()
-	info := &types.Info{
-		Types: make(map[ast.Expr]types.TypeAndValue),
-		Defs:  make(map[*ast.Ident]types.Object),
-		Uses:  make(map[*ast.Ident]types.Object),
-	}
-
-	return &pkg{nil, false, fset, info}
+	return &Loader{config, map[string]*types.Package{}, srcDirs}
 }
 
 // Load reads in the AST
 func (l *Loader) Load(ctx context.Context, base string) (*Program, error) {
 	if l == nil {
-		return nil, errors.New("No pointer reciever")
+		return nil, errors.New("No pointer receiver")
 	}
 
 	abs, err := filepath.Abs(base)
@@ -82,35 +58,42 @@ func (l *Loader) Load(ctx context.Context, base string) (*Program, error) {
 
 	fmt.Printf("pkgName: '%s'\n", pkgName)
 
-	return l.load(ctx, pkgName, 0)
+	program := newProgram()
+
+	err = l.load(ctx, program, pkgName, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return program, nil
 }
 
-func (l *Loader) load(ctx context.Context, base string, depth int) (*Program, error) {
+func (l *Loader) load(ctx context.Context, program *Program, base string, depth int) error {
 	spacer := strings.Repeat("  ", depth)
 	select {
 	case <-ctx.Done():
-		return nil, context.Canceled
+		return context.Canceled
 	default:
 	}
 
 	fpath, err := l.findSourcePath(base)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	buildP, err := build.ImportDir(fpath, 0)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	pkg := newPkg()
+	pkg := newPkg(base)
 	astPkgs := make(map[string]*ast.Package)
 	for _, v := range buildP.GoFiles {
 		fpath := path.Join(buildP.Dir, v)
 
 		astf, err := parser.ParseFile(pkg.fset, fpath, nil, 0)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		name := astf.Name.Name
@@ -136,17 +119,17 @@ func (l *Loader) load(ctx context.Context, base string, depth int) (*Program, er
 
 		p, err := l.config.Check(k, pkg.fset, *pkg.asts, pkg.info)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		id := base
 		fmt.Printf("%s-- Adding key '%s'\n", spacer, id)
-		l.pkgs[id] = pkg
+		program.pkgs[id] = pkg
 		l.ps[id] = p
 	}
 
 	p, ok := l.ps[base]
 	if !ok {
-		return nil, errors.New("Failed to find package with directory-eponymous name")
+		return errors.New("Failed to find package with directory-eponymous name")
 	}
 	fmt.Printf("%sProcessing '%s' imports...\n", spacer, p.Path())
 
@@ -154,19 +137,19 @@ func (l *Loader) load(ctx context.Context, base string, depth int) (*Program, er
 	for _, v0 := range imports {
 		id := v0.Path()
 		fmt.Printf("%s** Checking for '%s'...", spacer, id)
-		if _, ok := l.pkgs[id]; ok {
+		if _, ok := program.pkgs[id]; ok {
 			fmt.Printf(" already parsed; skipping...\n")
 			continue
 		}
 
 		fmt.Printf(" processing...\n")
-		_, err := l.load(ctx, id, depth+1)
+		err := l.load(ctx, program, id, depth+1)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return nil, nil
+	return nil
 }
 
 func (l *Loader) findSourcePath(pkgName string) (string, error) {
@@ -193,7 +176,6 @@ func (l *Loader) findSourcePath(pkgName string) (string, error) {
 			isDir = s.IsDir()
 		}
 		if isDir {
-			// fmt.Printf("Have source path '%s'\n", fpath)
 			return fpath, nil
 		}
 	}

@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/object88/cprofile"
 	"github.com/spf13/cobra"
@@ -13,8 +14,6 @@ var importsCmd = &cobra.Command{
 	Short: "Print the imports.",
 	Long:  "Gets the de-duplicated list of imports.",
 	Run: func(cmd *cobra.Command, args []string) {
-		// i := cprofile.NewImports()
-
 		ctx, cancelFn := context.WithCancel(context.Background())
 		defer cancelFn()
 
@@ -22,23 +21,25 @@ var importsCmd = &cobra.Command{
 		if len(args) > 0 {
 			base = args[0]
 		}
-		// err := i.Read(ctx, base)
-		// if err != nil {
-		// 	fmt.Printf("AWHELLNAW.\n%s\n", err.Error())
-		// }
-
-		// fmt.Printf("***\n")
 
 		l := cprofile.NewLoader()
-		_, err := l.Load(ctx, base)
+		p, err := l.Load(ctx, base)
 		if err != nil {
 			fmt.Printf("Got error: %s\n", err.Error())
 		}
 
-		// fmt.Printf("***\n")
+		pkgs := p.Imports()
+		if len(pkgs) == 0 {
+			fmt.Printf("NO RESULTS")
+			return
+		}
 
-		// for _, v := range i.Flatlist() {
-		// 	fmt.Println(v)
-		// }
+		sort.Slice(pkgs, func(i, j int) bool {
+			return pkgs[i].Name() < pkgs[j].Name()
+		})
+
+		for _, v := range pkgs {
+			cmd.Printf("%s\n", v.Name())
+		}
 	},
 }
