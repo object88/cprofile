@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"sort"
 
 	"github.com/object88/cprofile"
@@ -13,7 +12,14 @@ var globalsCmd = &cobra.Command{
 	Use:   "globals",
 	Short: "Returns list of instances of global variables.",
 	Long:  "Returns the list of global variables for a program, with file name and offsets.",
-	Run: func(cmd *cobra.Command, args []string) {
+	PreRun: func(_ *cobra.Command, _ []string) {
+		if Verbose {
+			// Adjusting the log level
+			cprofile.Stdout().SetLevel(cprofile.Verbose)
+			cprofile.Stderr().SetLevel(cprofile.Verbose)
+		}
+	},
+	Run: func(_ *cobra.Command, args []string) {
 		ctx, cancelFn := context.WithCancel(context.Background())
 		defer cancelFn()
 
@@ -25,21 +31,23 @@ var globalsCmd = &cobra.Command{
 		l := cprofile.NewLoader()
 		p, err := l.Load(ctx, base)
 		if err != nil {
-			fmt.Printf("Got error: %s\n", err.Error())
+			cprofile.Stderr().Printf("Got error: %s\n", err.Error())
 			return
 		}
 
 		pkg, err := p.Package()
 		if err != nil {
-			fmt.Printf("Got error: %s\n", err.Error())
+			cprofile.Stderr().Printf("Got error: %s\n", err.Error())
 			return
 		}
 
 		globals := pkg.Globals()
 		sort.Strings(globals)
 
+		stdout := cprofile.Stdout()
+
 		for _, v := range globals {
-			fmt.Printf("%s\n", v)
+			stdout.Printf("%s\n", v)
 		}
 	},
 }

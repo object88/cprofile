@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"sort"
 
 	"github.com/object88/cprofile"
@@ -25,7 +24,7 @@ var importsCmd = &cobra.Command{
 		l := cprofile.NewLoader()
 		p, err := l.Load(ctx, base)
 		if err != nil {
-			fmt.Printf("Got error: %s\n", err.Error())
+			cprofile.Stderr().Printf("Got error: %s\n", err.Error())
 			return
 		}
 
@@ -38,8 +37,9 @@ var importsCmd = &cobra.Command{
 			return pkgs[i].Name() < pkgs[j].Name()
 		})
 
+		stdout := cprofile.Stdout()
 		for _, v := range pkgs {
-			cmd.Printf("%s\n", v.Name())
+			stdout.Printf("%s\n", v.Name())
 		}
 	},
 }

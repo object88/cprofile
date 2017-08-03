@@ -20,18 +20,20 @@ type Loader struct {
 	config  *types.Config
 	ps      map[string]*types.Package
 	srcDirs []string
+	stderr  *Log
 }
 
 // NewLoader constructs a new Loader struct
 func NewLoader() *Loader {
+	l := Stderr()
 	config := &types.Config{
 		Error: func(e error) {
-			fmt.Println(e)
+			l.Printf("%s\n", e.Error())
 		},
 		Importer: importer.Default(),
 	}
 	srcDirs := build.Default.SrcDirs()
-	return &Loader{config, map[string]*types.Package{}, srcDirs}
+	return &Loader{config, map[string]*types.Package{}, srcDirs, l}
 }
 
 // Load reads in the AST
@@ -52,11 +54,10 @@ func (l *Loader) Load(ctx context.Context, base string) (*Program, error) {
 		}
 	}
 	if pkgName == "" {
-		msg := fmt.Sprintf("Failed to find '%s'", base)
-		return nil, errors.New(msg)
+		return nil, fmt.Errorf("Failed to find '%s'", base)
 	}
 
-	fmt.Printf("pkgName: '%s'\n", pkgName)
+	l.stderr.Verbosef("pkgName: '%s'\n", pkgName)
 
 	program := newProgram()
 
@@ -93,7 +94,7 @@ func (l *Loader) load(ctx context.Context, program *Program, base string, depth 
 
 		astf, err := parser.ParseFile(pkg.fset, fpath, nil, 0)
 		if err != nil {
-			fmt.Printf("Got error while parsing file '%s':\n%s\n", fpath, err.Error())
+			l.stderr.Verbosef("Got error while parsing file '%s':\n%s\n", fpath, err.Error())
 			// return err
 		}
 
@@ -115,8 +116,8 @@ func (l *Loader) load(ctx context.Context, program *Program, base string, depth 
 
 	for k, v := range astPkgs {
 		if !strings.HasSuffix(fpath, k) {
-			fmt.Printf("fpath = '%s'\n", fpath)
-			fmt.Printf("Skipping '%s'\n", k)
+			l.stderr.Verbosef("fpath = '%s'\n", fpath)
+			l.stderr.Verbosef("Skipping '%s'\n", k)
 			continue
 		}
 
@@ -124,11 +125,11 @@ func (l *Loader) load(ctx context.Context, program *Program, base string, depth 
 
 		p, err := l.config.Check(k, pkg.fset, *pkg.asts, pkg.info)
 		if err != nil {
-			fmt.Printf("Got error checking package '%s':\n%s\n", k, err.Error())
+			l.stderr.Verbosef("Got error checking package '%s':\n%s\n", k, err.Error())
 			// return err
 		}
 		id := base
-		fmt.Printf("%s-- Adding key '%s'\n", spacer, id)
+		l.stderr.Verbosef("%s-- Adding key '%s'\n", spacer, id)
 		program.pkgs[id] = pkg
 		l.ps[id] = p
 	}
@@ -137,18 +138,18 @@ func (l *Loader) load(ctx context.Context, program *Program, base string, depth 
 	if !ok {
 		return errors.New("Failed to find package with directory-eponymous name")
 	}
-	fmt.Printf("%sProcessing '%s' imports...\n", spacer, p.Path())
+	l.stderr.Verbosef("%sProcessing '%s' imports...\n", spacer, p.Path())
 
 	imports := p.Imports()
 	for _, v0 := range imports {
 		id := v0.Path()
-		fmt.Printf("%s** Checking for '%s'...", spacer, id)
+		l.stderr.Verbosef("%s** Checking for '%s'...", spacer, id)
 		if _, ok := program.pkgs[id]; ok {
-			fmt.Printf(" already parsed; skipping...\n")
+			l.stderr.Verbosef(" already parsed; skipping...\n")
 			continue
 		}
 
-		fmt.Printf(" processing...\n")
+		l.stderr.Verbosef(" processing...\n")
 		err := l.load(ctx, program, id, depth+1)
 		if err != nil {
 			return err
@@ -164,7 +165,7 @@ func (l *Loader) findSourcePath(pkgName string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		fmt.Printf("Got '.'; using '%s'\n", p)
+		l.stderr.Verbosef("Got '.'; using '%s'\n", p)
 
 		return p, nil
 	}
@@ -186,8 +187,7 @@ func (l *Loader) findSourcePath(pkgName string) (string, error) {
 		}
 	}
 
-	msg := fmt.Sprintf("Failed to locate package '%s'", pkgName)
-	return "", errors.New(msg)
+	return "", fmt.Errorf("Failed to locate package '%s'", pkgName)
 }
 
 func makeAsts(pkg *ast.Package) *[]*ast.File {
