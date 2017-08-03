@@ -28,7 +28,7 @@ func NewLoader() *Loader {
 	l := Stderr()
 	config := &types.Config{
 		Error: func(e error) {
-			l.Printf("%s\n", e.Error())
+			l.Warnf("%s\n", e.Error())
 		},
 		Importer: importer.Default(),
 	}
