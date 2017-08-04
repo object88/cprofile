@@ -10,8 +10,8 @@ type Program struct {
 	pkg  *Package
 }
 
-func newProgram() *Program {
-	return &Program{map[string]*Package{}, nil}
+func newProgram(pkgs map[string]*Package, pkg *Package) *Program {
+	return &Program{pkgs, pkg}
 }
 
 // Imports returns an array of all packages imported by the program

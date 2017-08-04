@@ -9,7 +9,6 @@ import (
 	"os/signal"
 
 	"github.com/google/pprof/profile"
-	"github.com/object88/cprofile"
 	"github.com/spf13/cobra"
 )
 
@@ -42,7 +41,7 @@ var runCmd = &cobra.Command{
 
 		fmt.Printf("Output:\n%s\n", p.String())
 
-		cprofile.NewProcess(p)
+		// cprofile.NewProcess(p)
 
 		<-sigchan
 	},

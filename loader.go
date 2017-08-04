@@ -18,9 +18,14 @@ import (
 // Loader will load code into an AST
 type Loader struct {
 	config  *types.Config
-	ps      map[string]*types.Package
 	srcDirs []string
 	stderr  *Log
+}
+
+type loaderState struct {
+	pkgs    map[string]*Package
+	ps      map[string]*types.Package
+	options interface{}
 }
 
 // NewLoader constructs a new Loader struct
@@ -33,7 +38,7 @@ func NewLoader() *Loader {
 		Importer: importer.Default(),
 	}
 	srcDirs := build.Default.SrcDirs()
-	return &Loader{config, map[string]*types.Package{}, srcDirs, l}
+	return &Loader{config, srcDirs, l}
 }
 
 // Load reads in the AST
@@ -59,32 +64,35 @@ func (l *Loader) Load(ctx context.Context, base string) (*Program, error) {
 
 	l.stderr.Verbosef("pkgName: '%s'\n", pkgName)
 
-	program := newProgram()
+	ls := &loaderState{map[string]*Package{}, map[string]*types.Package{}, nil}
 
-	err = l.load(ctx, program, pkgName, 0)
+	pkg, err := l.load(ctx, ls, pkgName, 0)
 	if err != nil {
 		return nil, err
 	}
 
+	program := newProgram(ls.pkgs, pkg)
+
 	return program, nil
 }
 
-func (l *Loader) load(ctx context.Context, program *Program, base string, depth int) error {
-	spacer := strings.Repeat("  ", depth)
+func (l *Loader) load(ctx context.Context, ls *loaderState, base string, depth int) (*Package, error) {
 	select {
 	case <-ctx.Done():
-		return context.Canceled
+		return nil, context.Canceled
 	default:
 	}
 
+	spacer := strings.Repeat("  ", depth)
+
 	fpath, err := l.findSourcePath(base)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	buildP, err := build.ImportDir(fpath, 0)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	pkg := newPkg(base)
@@ -95,7 +103,6 @@ func (l *Loader) load(ctx context.Context, program *Program, base string, depth 
 		astf, err := parser.ParseFile(pkg.fset, fpath, nil, 0)
 		if err != nil {
 			l.stderr.Verbosef("Got error while parsing file '%s':\n%s\n", fpath, err.Error())
-			// return err
 		}
 
 		name := astf.Name.Name
@@ -108,10 +115,6 @@ func (l *Loader) load(ctx context.Context, program *Program, base string, depth 
 			astPkgs[name] = astPkg
 		}
 		astPkg.Files[fpath] = astf
-	}
-
-	if program.pkg == nil {
-		program.pkg = pkg
 	}
 
 	for k, v := range astPkgs {
@@ -130,13 +133,13 @@ func (l *Loader) load(ctx context.Context, program *Program, base string, depth 
 		}
 		id := base
 		l.stderr.Verbosef("%s-- Adding key '%s'\n", spacer, id)
-		program.pkgs[id] = pkg
-		l.ps[id] = p
+		ls.pkgs[id] = pkg
+		ls.ps[id] = p
 	}
 
-	p, ok := l.ps[base]
+	p, ok := ls.ps[base]
 	if !ok {
-		return errors.New("Failed to find package with directory-eponymous name")
+		return nil, errors.New("Failed to find package with directory-eponymous name")
 	}
 	l.stderr.Verbosef("%sProcessing '%s' imports...\n", spacer, p.Path())
 
@@ -144,19 +147,19 @@ func (l *Loader) load(ctx context.Context, program *Program, base string, depth 
 	for _, v0 := range imports {
 		id := v0.Path()
 		l.stderr.Verbosef("%s** Checking for '%s'...", spacer, id)
-		if _, ok := program.pkgs[id]; ok {
+		if _, ok := ls.pkgs[id]; ok {
 			l.stderr.Verbosef(" already parsed; skipping...\n")
 			continue
 		}
 
 		l.stderr.Verbosef(" processing...\n")
-		err := l.load(ctx, program, id, depth+1)
+		_, err := l.load(ctx, ls, id, depth+1)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return pkg, nil
 }
 
 func (l *Loader) findSourcePath(pkgName string) (string, error) {
