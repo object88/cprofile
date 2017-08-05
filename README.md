@@ -26,4 +26,6 @@ Maybe provide option to indicate whether to start immediately, or wait to start.
 
 ## Vendoring
 
-`govend github.com/gorilla/mux`
+Use the `dep` tool for vendoring.
+
+`dep ensure`

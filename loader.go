@@ -23,9 +23,9 @@ type Loader struct {
 }
 
 type loaderState struct {
-	pkgs    map[string]*Package
-	ps      map[string]*types.Package
-	options interface{}
+	pkgs  map[string]*Package
+	ps    map[string]*types.Package
+	depth AstDepth
 }
 
 // NewLoader constructs a new Loader struct
@@ -42,7 +42,7 @@ func NewLoader() *Loader {
 }
 
 // Load reads in the AST
-func (l *Loader) Load(ctx context.Context, base string) (*Program, error) {
+func (l *Loader) Load(ctx context.Context, base string, depth AstDepth) (*Program, error) {
 	if l == nil {
 		return nil, errors.New("No pointer receiver")
 	}
@@ -64,7 +64,7 @@ func (l *Loader) Load(ctx context.Context, base string) (*Program, error) {
 
 	l.stderr.Verbosef("pkgName: '%s'\n", pkgName)
 
-	ls := &loaderState{map[string]*Package{}, map[string]*types.Package{}, nil}
+	ls := &loaderState{map[string]*Package{}, map[string]*types.Package{}, Shallow}
 
 	pkg, err := l.load(ctx, ls, pkgName, 0)
 	if err != nil {

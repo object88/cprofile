@@ -29,7 +29,7 @@ var globalsCmd = &cobra.Command{
 		}
 
 		l := cprofile.NewLoader()
-		p, err := l.Load(ctx, base)
+		p, err := l.Load(ctx, base, cprofile.Shallow)
 		if err != nil {
 			cprofile.Stderr().Printf("Got error: %s\n", err.Error())
 			return
@@ -50,4 +50,5 @@ var globalsCmd = &cobra.Command{
 			stdout.Printf("%s\n", v)
 		}
 	},
+	ValidArgs: nil,
 }

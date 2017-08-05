@@ -8,6 +8,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var astDepth string
+
 var importsCmd = &cobra.Command{
 	Use:   "imports",
 	Short: "Print the imports.",
@@ -22,7 +24,7 @@ var importsCmd = &cobra.Command{
 		}
 
 		l := cprofile.NewLoader()
-		p, err := l.Load(ctx, base)
+		p, err := l.Load(ctx, base, cprofile.Shallow)
 		if err != nil {
 			cprofile.Stderr().Printf("Got error: %s\n", err.Error())
 			return
