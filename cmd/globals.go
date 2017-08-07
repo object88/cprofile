@@ -12,12 +12,13 @@ var globalsCmd = &cobra.Command{
 	Use:   "globals",
 	Short: "Returns list of instances of global variables.",
 	Long:  "Returns the list of global variables for a program, with file name and offsets.",
-	PreRun: func(_ *cobra.Command, _ []string) {
+	PreRunE: func(cmd *cobra.Command, _ []string) error {
 		if Verbose {
 			// Adjusting the log level
 			cprofile.Stdout().SetLevel(cprofile.Verbose)
 			cprofile.Stderr().SetLevel(cprofile.Verbose)
 		}
+		return nil
 	},
 	Run: func(_ *cobra.Command, args []string) {
 		ctx, cancelFn := context.WithCancel(context.Background())
@@ -41,7 +42,7 @@ var globalsCmd = &cobra.Command{
 			return
 		}
 
-		globals := pkg.Globals()
+		globals := pkg.Globals(p.FileSet())
 		sort.Strings(globals)
 
 		stdout := cprofile.Stdout()
@@ -50,5 +51,4 @@ var globalsCmd = &cobra.Command{
 			stdout.Printf("%s\n", v)
 		}
 	},
-	ValidArgs: nil,
 }

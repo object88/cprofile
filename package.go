@@ -10,24 +10,24 @@ import (
 // Package represents a Go package
 type Package struct {
 	asts *[]*ast.File
-	fset *token.FileSet
+	// fset *token.FileSet
 	info *types.Info
 	name string
 }
 
 func newPkg(name string) *Package {
-	fset := token.NewFileSet()
+	// fset := token.NewFileSet()
 	info := &types.Info{
 		Types: make(map[ast.Expr]types.TypeAndValue),
 		Defs:  make(map[*ast.Ident]types.Object),
 		Uses:  make(map[*ast.Ident]types.Object),
 	}
 
-	return &Package{nil, fset, info, name}
+	return &Package{nil, info, name}
 }
 
 // Globals returns a list of global variables in the package
-func (p *Package) Globals() []string {
+func (p *Package) Globals(fset *token.FileSet) []string {
 	if p == nil {
 		return []string{}
 	}
@@ -45,7 +45,7 @@ func (p *Package) Globals() []string {
 			if grandparent != types.Universe {
 				continue
 			}
-			globals[k.Name] = p.fset.Position(k.Pos()).String()
+			globals[k.Name] = fset.Position(k.Pos()).String()
 		default:
 			continue
 		}

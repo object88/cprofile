@@ -2,16 +2,27 @@ package cprofile
 
 import (
 	"errors"
+	"go/token"
 )
 
 // Program is a mass of code
 type Program struct {
+	fset *token.FileSet
 	pkgs map[string]*Package
 	pkg  *Package
 }
 
-func newProgram(pkgs map[string]*Package, pkg *Package) *Program {
-	return &Program{pkgs, pkg}
+func newProgram(fset *token.FileSet, pkgs map[string]*Package, pkg *Package) *Program {
+	return &Program{fset, pkgs, pkg}
+}
+
+// FileSet returns the set of files involved across all packages loaded for this program
+func (p *Program) FileSet() *token.FileSet {
+	if p == nil || len(p.pkgs) == 0 {
+		return nil
+	}
+
+	return p.fset
 }
 
 // Imports returns an array of all packages imported by the program

@@ -8,7 +8,7 @@ var Verbose bool
 func init() {
 	RootCmd.AddCommand(globalsCmd, importsCmd, runCmd, versionCmd)
 	RootCmd.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "verbose output")
-	importsCmd.Flags().StringVarP(&astDepth, "astDepth", "a", "shallow", "AST depth")
+	importsCmd.Flags().StringVarP(&astDepth, "astDepth", "a", "s", "AST depth")
 	runCmd.Flags().StringVarP(&binaryPath, "binaryPath", "b", "", "path to binary")
 	runCmd.Flags().StringVarP(&profilePath, "profilePath", "p", "", "path to pprof output file")
 }
