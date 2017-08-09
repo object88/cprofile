@@ -10,20 +10,19 @@ import (
 // Package represents a Go package
 type Package struct {
 	asts *[]*ast.File
-	// fset *token.FileSet
 	info *types.Info
 	name string
+	pkg  *types.Package
 }
 
 func newPkg(name string) *Package {
-	// fset := token.NewFileSet()
 	info := &types.Info{
 		Types: make(map[ast.Expr]types.TypeAndValue),
 		Defs:  make(map[*ast.Ident]types.Object),
 		Uses:  make(map[*ast.Ident]types.Object),
 	}
 
-	return &Package{nil, info, name}
+	return &Package{nil, info, name, nil}
 }
 
 // Globals returns a list of global variables in the package

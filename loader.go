@@ -25,12 +25,12 @@ type Loader struct {
 }
 
 type loaderState struct {
-	base  string
-	owner string
-	fset  *token.FileSet
-	pkgs  map[string]*Package
-	ps    map[string]*types.Package
-	depth AstDepth
+	base         string
+	organization string
+	fset         *token.FileSet
+	pkgs         map[string]*Package
+	depth        AstDepth
+	spacers      *[]string
 }
 
 // NewLoader constructs a new Loader struct
@@ -44,6 +44,33 @@ func NewLoader() *Loader {
 	}
 	srcDirs := build.Default.SrcDirs()
 	return &Loader{config, srcDirs, l}
+}
+
+func newLoaderState(pkgName string, depth AstDepth, maxDepth int) *loaderState {
+	if maxDepth == -1 {
+		maxDepth = 8
+	}
+	spacers := make([]string, maxDepth)
+	for i := 0; i < maxDepth; i++ {
+		spacers[i] = strings.Repeat("  ", i)
+	}
+
+	organization := ""
+	s := strings.Split(pkgName, "/")
+	if strings.Index(s[0], ".") != -1 {
+		organization = fmt.Sprintf("%s/src/%s/%s", build.Default.GOPATH, s[0], s[1])
+	}
+
+	ls := &loaderState{
+		pkgName,
+		organization,
+		token.NewFileSet(),
+		map[string]*Package{},
+		depth,
+		&spacers,
+	}
+
+	return ls
 }
 
 // Load reads in the AST
@@ -70,14 +97,14 @@ func (l *Loader) Load(ctx context.Context, base string, depth AstDepth) (*Progra
 	l.stderr.Verbosef("pkgName: '%s'\n", pkgName)
 
 	// [GOPATH]/src/github.com/object88/pkgA0/pkgA1/pkgA2
-	fmt.Printf("Source dirs:\n")
+	l.stderr.Debugf("Source dirs:\n")
 	for _, v := range l.srcDirs {
-		fmt.Printf("%s\n", v)
+		l.stderr.Debugf("%s\n", v)
 	}
 
-	fmt.Printf("Pkgname: %s\n", pkgName)
+	l.stderr.Debugf("Pkgname: %s\n", pkgName)
 
-	ls := &loaderState{pkgName, "", token.NewFileSet(), map[string]*Package{}, map[string]*types.Package{}, depth}
+	ls := newLoaderState(pkgName, depth, 8)
 
 	pkg, err := l.load(ctx, ls, abs, pkgName, 0)
 	if err != nil {
@@ -96,15 +123,21 @@ func (l *Loader) load(ctx context.Context, ls *loaderState, fpath, base string, 
 	default:
 	}
 
-	spacer := strings.Repeat("  ", depth)
+	pkg, p, err := l.buildPackage(ls, fpath, base, depth)
 
-	buildP, err := build.ImportDir(fpath, 0)
+	l.stderr.Verbosef("%sProcessing '%s' imports...\n", ls.getSpacer(depth), p.Path())
+
+	err = l.visitImports(ctx, p, ls, depth)
 	if err != nil {
 		return nil, err
 	}
 
-	pkg := newPkg(base)
-	astPkgs := make(map[string]*ast.Package)
+	return pkg, nil
+}
+
+func (l *Loader) buildAstPackages(buildP *build.Package, ls *loaderState) map[string]*ast.Package {
+	astPkgs := map[string]*ast.Package{}
+
 	for _, v := range buildP.GoFiles {
 		fpath := path.Join(buildP.Dir, v)
 
@@ -125,6 +158,18 @@ func (l *Loader) load(ctx context.Context, ls *loaderState, fpath, base string, 
 		astPkg.Files[fpath] = astf
 	}
 
+	return astPkgs
+}
+
+func (l *Loader) buildPackage(ls *loaderState, fpath, base string, depth int) (*Package, *types.Package, error) {
+	buildP, err := build.ImportDir(fpath, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pkg := newPkg(base)
+	astPkgs := l.buildAstPackages(buildP, ls)
+
 	for k, v := range astPkgs {
 		if !strings.HasSuffix(fpath, k) {
 			l.stderr.Verbosef("fpath = '%s'\n", fpath)
@@ -137,50 +182,76 @@ func (l *Loader) load(ctx context.Context, ls *loaderState, fpath, base string, 
 		p, err := l.config.Check(k, ls.fset, *pkg.asts, pkg.info)
 		if err != nil {
 			l.stderr.Verbosef("Got error checking package '%s':\n%s\n", k, err.Error())
-			// return err
 		}
-		id := base
 		path, err := l.findSourcePath(base)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		l.stderr.Verbosef("%s-- Adding key '%s' / '%s'\n", spacer, id, path)
+		l.stderr.Verbosef("%s-- Adding key '%s' / '%s'\n", ls.getSpacer(depth), base, path)
+
+		pkg.pkg = p
 		ls.pkgs[path] = pkg
-		ls.ps[path] = p
 	}
 
-	p, ok := ls.ps[fpath]
+	pkg, ok := ls.pkgs[fpath]
 	if !ok {
-		return nil, errors.New("Failed to find package with directory-eponymous name")
+		return nil, nil, errors.New("Failed to find package with directory-eponymous name")
 	}
-	l.stderr.Verbosef("%sProcessing '%s' imports...\n", spacer, p.Path())
 
+	return pkg, pkg.pkg, nil
+}
+
+func (l *Loader) visitImports(ctx context.Context, p *types.Package, ls *loaderState, depth int) error {
 	imports := p.Imports()
 	for _, v0 := range imports {
 		id := v0.Path()
 		path, err := l.findSourcePath(id)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		l.stderr.Verbosef("%s** Checking for '%s' / '%s'...", spacer, id, path)
+
 		if _, ok := ls.pkgs[path]; ok {
-			l.stderr.Verbosef(" already parsed; skipping...\n")
+			l.stderr.Verbosef("%s** Checking for '%s' / '%s' already parsed; skipping...\n", ls.getSpacer(depth), id, path)
 			continue
 		}
 
 		if !l.checkDepth(ls, id) {
-			l.stderr.Verbosef(" failed depth check...\n")
+			l.stderr.Verbosef("%s** Checking for '%s' / '%s' failed depth check.\n", ls.getSpacer(depth), id, path)
 			continue
 		}
 
-		l.stderr.Verbosef(" processing...\n")
+		l.stderr.Verbosef("%s** Checking for '%s' / '%s' processing...\n", ls.getSpacer(depth), id, path)
 		_, err = l.load(ctx, ls, path, id, depth+1)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return pkg, nil
+	return nil
+}
+
+func (l *Loader) checkDepth(ls *loaderState, pkgName string) bool {
+	if ls.depth == Complete {
+		// Complete includes everything
+		return true
+	}
+
+	p, err := l.findSourcePath(pkgName)
+	if err != nil {
+		return false
+	}
+
+	if ls.depth == Shallow {
+		// Only my direct imports
+		return ls.base == pkgName
+	} else if ls.depth == Deep {
+		return strings.HasPrefix(p, ls.base)
+	} else if ls.depth == Local {
+		return strings.HasPrefix(p, ls.organization)
+	}
+
+	// Wide: everything that isn't in stdlib.
+	return !strings.HasPrefix(p, runtime.GOROOT())
 }
 
 func (l *Loader) findSourcePath(pkgName string) (string, error) {
@@ -214,6 +285,25 @@ func (l *Loader) findSourcePath(pkgName string) (string, error) {
 	return "", fmt.Errorf("Failed to locate package '%s'", pkgName)
 }
 
+func (ls *loaderState) getSpacer(depth int) string {
+	initialSize := len(*ls.spacers)
+	if depth >= initialSize {
+		// Expand the contents
+		targetSize := nextPowerOfTwo(depth)
+		target := make([]string, targetSize)
+		for i := 0; i < initialSize; i++ {
+			target[i] = (*ls.spacers)[i]
+		}
+		for i := initialSize; i < targetSize; i++ {
+			target[i] = strings.Repeat("  ", i)
+		}
+
+		ls.spacers = &target
+	}
+
+	return (*ls.spacers)[depth]
+}
+
 func makeAsts(pkg *ast.Package) *[]*ast.File {
 	asts := make([]*ast.File, len(pkg.Files))
 	i := 0
@@ -223,30 +313,4 @@ func makeAsts(pkg *ast.Package) *[]*ast.File {
 	}
 
 	return &asts
-}
-
-func (l *Loader) checkDepth(ls *loaderState, pkgName string) bool {
-	if ls.depth == Complete {
-		// Complete includes everything
-		return true
-	}
-
-	p, err := l.findSourcePath(pkgName)
-	if err != nil {
-		return false
-	}
-
-	fmt.Printf(" -> %s", p)
-
-	if ls.depth == Shallow {
-		// Only my direct imports
-		return ls.base == pkgName
-	} else if ls.depth == Deep {
-		return strings.HasPrefix(p, ls.base)
-	} else if ls.depth == Local {
-
-	}
-
-	// Wide: everything that isn't in stdlib.
-	return strings.HasPrefix(p, runtime.GOROOT())
 }

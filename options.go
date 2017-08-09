@@ -9,22 +9,23 @@ import (
 type AstDepth int
 
 const (
-	// Shallow only inspects the package in the given directory
+	// Shallow addresses the contents of the package
 	Shallow AstDepth = iota
 
-	// Deep is the given package and all its children
+	// Deep addresses the contents of the given package and all its referenced children
 	Deep
 
-	// Local is all packages by the same owner
+	// Local addresses the contents of all packages in the same organization
 	Local
 
-	// Wide is all non-stdlib packages
+	// Wide addresses the contents of all directly and indirectly imported non-stdlib packages
 	Wide
 
-	// Complete is every package, including stdlib
+	// Complete addresses the contents of every imported package, including stdlib
 	Complete
 )
 
+// CheckAstDepth validates the AstDepth flag
 func CheckAstDepth(v string) (AstDepth, error) {
 	if len(v) == 1 {
 		switch rune(strings.ToLower(v)[0]) {
