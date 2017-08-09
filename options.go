@@ -27,8 +27,9 @@ const (
 
 // CheckAstDepth validates the AstDepth flag
 func CheckAstDepth(v string) (AstDepth, error) {
-	if len(v) == 1 {
-		switch rune(strings.ToLower(v)[0]) {
+	v0 := strings.ToLower(v)
+	if len(v0) == 1 {
+		switch rune(v0[0]) {
 		case 's':
 			return Shallow, nil
 		case 'd':
@@ -41,7 +42,18 @@ func CheckAstDepth(v string) (AstDepth, error) {
 			return Complete, nil
 		}
 	} else {
-
+		switch v0 {
+		case "shallow":
+			return Shallow, nil
+		case "deep":
+			return Deep, nil
+		case "local":
+			return Local, nil
+		case "wide":
+			return Wide, nil
+		case "complete":
+			return Complete, nil
+		}
 	}
 
 	return 0, fmt.Errorf("Unknown ast depth value '%s'", v)
