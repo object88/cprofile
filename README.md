@@ -20,7 +20,7 @@ cprofile imports main
 
 ### Imports
 
-The `imports` command will list the imported packages.  See the [complete documentation](./cmds/imports.md).
+The `imports` command will list the imported packages.  See the [complete documentation](./cmd/imports.md).
 
 
 ## Building
