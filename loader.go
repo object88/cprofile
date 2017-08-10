@@ -84,6 +84,14 @@ func (l *Loader) Load(ctx context.Context, base string, depth AstDepth) (*Progra
 		return nil, err
 	}
 
+	fi, err := os.Stat(abs)
+	if err != nil {
+		return nil, err
+	}
+	if !fi.IsDir() {
+		return nil, fmt.Errorf("Provided path '%s' must be a directory", base)
+	}
+
 	pkgName := ""
 	for _, v := range l.srcDirs {
 		if strings.HasPrefix(abs, v) {
@@ -124,6 +132,9 @@ func (l *Loader) load(ctx context.Context, ls *loaderState, fpath, base string, 
 	}
 
 	pkg, p, err := l.buildPackage(ls, fpath, base, depth)
+	if err != nil {
+		return nil, err
+	}
 
 	l.stderr.Verbosef("%sProcessing '%s' imports...\n", ls.getSpacer(depth), p.Path())
 
@@ -171,9 +182,7 @@ func (l *Loader) buildPackage(ls *loaderState, fpath, base string, depth int) (*
 	astPkgs := l.buildAstPackages(buildP, ls)
 
 	for k, v := range astPkgs {
-		if !strings.HasSuffix(fpath, k) {
-			l.stderr.Verbosef("fpath = '%s'\n", fpath)
-			l.stderr.Verbosef("Skipping '%s'\n", k)
+		if strings.HasSuffix(v.Name, "_test") {
 			continue
 		}
 
@@ -183,6 +192,7 @@ func (l *Loader) buildPackage(ls *loaderState, fpath, base string, depth int) (*
 		if err != nil {
 			l.stderr.Verbosef("Got error checking package '%s':\n%s\n", k, err.Error())
 		}
+
 		path, err := l.findSourcePath(base)
 		if err != nil {
 			return nil, nil, err

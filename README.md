@@ -22,7 +22,6 @@ cprofile imports main
 
 The `imports` command will list the imported packages.  See the [complete documentation](./cmd/imports.md).
 
-
 ## Building
 
 `go build -o bin/cprofile main/main.go`
