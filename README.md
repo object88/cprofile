@@ -15,7 +15,7 @@ This program exposes several tools
 Using the `globals` command, one can discover whether there are any instances of global variables in the code.
 
 ```sh
-cprofile imports main
+cprofile globals main
 ```
 
 ### Imports
