@@ -29,8 +29,8 @@ type loaderState struct {
 	organization string
 	fset         *token.FileSet
 	pkgs         map[string]*Package
-	depth        AstDepth
 	spacers      *[]string
+	options      *LoaderOptions
 }
 
 // NewLoader constructs a new Loader struct
@@ -46,8 +46,9 @@ func NewLoader() *Loader {
 	return &Loader{config, srcDirs, l}
 }
 
-func newLoaderState(pkgName string, depth AstDepth, maxDepth int) *loaderState {
-	if maxDepth == -1 {
+func newLoaderState(pkgName string, options *LoaderOptions) *loaderState {
+	maxDepth := options.Depth
+	if maxDepth == DefaultDepth {
 		maxDepth = 8
 	}
 	spacers := make([]string, maxDepth)
@@ -66,15 +67,15 @@ func newLoaderState(pkgName string, depth AstDepth, maxDepth int) *loaderState {
 		organization,
 		token.NewFileSet(),
 		map[string]*Package{},
-		depth,
 		&spacers,
+		options,
 	}
 
 	return ls
 }
 
 // Load reads in the AST
-func (l *Loader) Load(ctx context.Context, base string, depth AstDepth) (*Program, error) {
+func (l *Loader) Load(ctx context.Context, base string, options ...LoaderOptionsFunc) (*Program, error) {
 	if l == nil {
 		return nil, errors.New("No pointer receiver")
 	}
@@ -112,7 +113,8 @@ func (l *Loader) Load(ctx context.Context, base string, depth AstDepth) (*Progra
 
 	l.stderr.Debugf("Pkgname: %s\n", pkgName)
 
-	ls := newLoaderState(pkgName, depth, 8)
+	lo := NewLoaderOptions(l.stderr, options...)
+	ls := newLoaderState(pkgName, lo)
 
 	pkg, err := l.load(ctx, ls, abs, pkgName, 0)
 	if err != nil {
@@ -241,7 +243,8 @@ func (l *Loader) visitImports(ctx context.Context, p *types.Package, ls *loaderS
 }
 
 func (l *Loader) checkDepth(ls *loaderState, pkgName string) bool {
-	if ls.depth == Complete {
+	d := ls.options.AstDepth
+	if d == Complete {
 		// Complete includes everything
 		return true
 	}
@@ -251,12 +254,12 @@ func (l *Loader) checkDepth(ls *loaderState, pkgName string) bool {
 		return false
 	}
 
-	if ls.depth == Shallow {
+	if d == Shallow {
 		// Only my direct imports
 		return ls.base == pkgName
-	} else if ls.depth == Deep {
+	} else if d == Deep {
 		return strings.HasPrefix(p, ls.base)
-	} else if ls.depth == Local {
+	} else if d == Local {
 		return strings.HasPrefix(p, ls.organization)
 	}
 

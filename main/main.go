@@ -11,7 +11,8 @@ import (
 var errExitCode = -1
 
 func main() {
-	if err := cmd.RootCmd.Execute(); err != nil {
+	rootCmd := cmd.InitializeCommands()
+	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(errExitCode)
 	}

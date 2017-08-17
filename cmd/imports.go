@@ -8,57 +8,67 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var astD cprofile.AstDepth
+type importsCmd struct {
+	cmd *cobra.Command
+	o   *globalOptions
+	ao  *astOptions
+	l   []cprofile.LoaderOptionsFunc
+}
 
-var astDepth string
+func createImportsCommand(o *globalOptions) *importsCmd {
+	importsCmd := &importsCmd{
+		nil,
+		o,
+		&astOptions{},
+		[]cprofile.LoaderOptionsFunc{},
+	}
 
-var importsCmd = &cobra.Command{
-	Use:   "imports",
-	Short: "Print the imports.",
-	Long:  "Gets the de-duplicated list of imports.",
-	PreRunE: func(cmd *cobra.Command, args []string) error {
-		if Verbose {
-			// Adjusting the log level
-			cprofile.Stdout().SetLevel(cprofile.Verbose)
-			cprofile.Stderr().SetLevel(cprofile.Verbose)
-		}
+	c := &cobra.Command{
+		Use:     "imports",
+		Short:   "Print the imports.",
+		Long:    "Gets the de-duplicated list of imports.",
+		PreRunE: importsCmd.PreRunE,
+		Run:     importsCmd.Run,
+	}
 
-		d := cmd.Flag("astDepth").Value
-		a, err := cprofile.CheckAstDepth(d.String())
-		if err != nil {
-			return err
-		}
-		astD = a
-		return nil
-	},
-	Run: func(cmd *cobra.Command, args []string) {
-		ctx, cancelFn := context.WithCancel(context.Background())
-		defer cancelFn()
+	importsCmd.cmd = c
+	importsCmd.ao.AttachFlags(c)
 
-		base := "."
-		if len(args) > 0 {
-			base = args[0]
-		}
+	return importsCmd
+}
 
-		l := cprofile.NewLoader()
-		p, err := l.Load(ctx, base, astD)
-		if err != nil {
-			cprofile.Stderr().Printf("Got error: %s\n", err.Error())
-			return
-		}
+func (c *importsCmd) PreRunE(cmd *cobra.Command, args []string) error {
+	c.l = c.ao.ProcessFlags(cmd, c.l)
+	return nil
+}
 
-		pkgs := p.Imports()
-		if len(pkgs) == 0 {
-			return
-		}
+func (c *importsCmd) Run(cmd *cobra.Command, args []string) {
+	ctx, cancelFn := context.WithCancel(context.Background())
+	defer cancelFn()
 
-		sort.Slice(pkgs, func(i, j int) bool {
-			return pkgs[i].Name() < pkgs[j].Name()
-		})
+	base := "."
+	if len(args) > 0 {
+		base = args[0]
+	}
 
-		stdout := cprofile.Stdout()
-		for _, v := range pkgs {
-			stdout.Printf("%s\n", v.Name())
-		}
-	},
+	l := cprofile.NewLoader()
+	p, err := l.Load(ctx, base, c.l...)
+	if err != nil {
+		cprofile.Stderr().Printf("Got error: %s\n", err.Error())
+		return
+	}
+
+	pkgs := p.Imports()
+	if len(pkgs) == 0 {
+		return
+	}
+
+	sort.Slice(pkgs, func(i, j int) bool {
+		return pkgs[i].Name() < pkgs[j].Name()
+	})
+
+	stdout := cprofile.Stdout()
+	for _, v := range pkgs {
+		stdout.Printf("%s\n", v.Name())
+	}
 }

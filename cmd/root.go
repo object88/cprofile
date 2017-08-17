@@ -1,24 +1,44 @@
 package cmd
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/spf13/cobra"
+)
 
-// Verbose describes whether output should be terse or verbose
-var Verbose bool
+func InitializeCommands() *cobra.Command {
+	rootCmd := createRootCommand()
 
-func init() {
-	RootCmd.AddCommand(globalsCmd, importsCmd, runCmd, versionCmd)
-	RootCmd.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "verbose output")
-	importsCmd.Flags().StringVarP(&astDepth, "astDepth", "a", "s", "AST depth")
-	runCmd.Flags().StringVarP(&binaryPath, "binaryPath", "b", "", "path to binary")
-	runCmd.Flags().StringVarP(&profilePath, "profilePath", "p", "", "path to pprof output file")
+	importsCmd := createImportsCommand(rootCmd.o)
+	globalsCmd := createGlobalsCommand(rootCmd.o)
+	versionCmd := createVersionCommand(rootCmd.o)
+
+	rootCmd.cmd.AddCommand(globalsCmd.cmd, importsCmd.cmd, versionCmd)
+	return rootCmd.cmd
+}
+
+type rootCmd struct {
+	cmd *cobra.Command
+	o   *globalOptions
 }
 
 // RootCmd is the main action taken by Cobra
-var RootCmd = &cobra.Command{
-	Use:   "cprofile",
-	Short: "cprofile injests and processes profile information from pprof",
-	Long:  "",
-	Run: func(cmd *cobra.Command, args []string) {
-		cmd.HelpFunc()(cmd, args)
-	},
+func createRootCommand() *rootCmd {
+	o := &globalOptions{}
+
+	cmd := &cobra.Command{
+		Use:   "cprofile",
+		Short: "cprofile injests and processes profile information from pprof",
+		Long:  "",
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			o.ProcessFlags(cmd, nil)
+			return nil
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.HelpFunc()(cmd, args)
+		},
+	}
+
+	o.AttachFlags(cmd)
+
+	rootCmd := &rootCmd{cmd, o}
+	return rootCmd
 }
