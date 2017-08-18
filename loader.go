@@ -75,7 +75,7 @@ func newLoaderState(pkgName string, options *LoaderOptions) *loaderState {
 }
 
 // Load reads in the AST
-func (l *Loader) Load(ctx context.Context, base string, options ...LoaderOptionsFunc) (*Program, error) {
+func (l *Loader) Load(ctx context.Context, base string, optionFns ...LoaderOptionsFunc) (*Program, error) {
 	if l == nil {
 		return nil, errors.New("No pointer receiver")
 	}
@@ -113,7 +113,7 @@ func (l *Loader) Load(ctx context.Context, base string, options ...LoaderOptions
 
 	l.stderr.Debugf("Pkgname: %s\n", pkgName)
 
-	lo := NewLoaderOptions(l.stderr, options...)
+	lo := NewLoaderOptions(l.stderr, optionFns...)
 	ls := newLoaderState(pkgName, lo)
 
 	pkg, err := l.load(ctx, ls, abs, pkgName, 0)
