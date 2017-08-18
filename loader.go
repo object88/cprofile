@@ -302,7 +302,7 @@ func (ls *loaderState) getSpacer(depth int) string {
 	initialSize := len(*ls.spacers)
 	if depth >= initialSize {
 		// Expand the contents
-		targetSize := nextPowerOfTwo(depth)
+		targetSize := nextPowerOfTwo(depth + 1)
 		target := make([]string, targetSize)
 		for i := 0; i < initialSize; i++ {
 			target[i] = (*ls.spacers)[i]
