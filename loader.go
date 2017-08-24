@@ -8,7 +8,6 @@ import (
 	"go/build"
 	"go/importer"
 	"go/parser"
-	"go/token"
 	"go/types"
 	"os"
 	"path"
@@ -24,15 +23,6 @@ type Loader struct {
 	stderr  *Log
 }
 
-type loaderState struct {
-	base         string
-	organization string
-	fset         *token.FileSet
-	pkgs         map[string]*Package
-	spacers      *[]string
-	options      *LoaderOptions
-}
-
 // NewLoader constructs a new Loader struct
 func NewLoader() *Loader {
 	l := Stderr()
@@ -44,34 +34,6 @@ func NewLoader() *Loader {
 	}
 	srcDirs := build.Default.SrcDirs()
 	return &Loader{config, srcDirs, l}
-}
-
-func newLoaderState(pkgName string, options *LoaderOptions) *loaderState {
-	maxDepth := options.Depth
-	if maxDepth == DefaultDepth {
-		maxDepth = 8
-	}
-	spacers := make([]string, maxDepth)
-	for i := 0; i < maxDepth; i++ {
-		spacers[i] = strings.Repeat("  ", i)
-	}
-
-	organization := ""
-	s := strings.Split(pkgName, "/")
-	if strings.Index(s[0], ".") != -1 {
-		organization = fmt.Sprintf("%s/src/%s/%s", build.Default.GOPATH, s[0], s[1])
-	}
-
-	ls := &loaderState{
-		pkgName,
-		organization,
-		token.NewFileSet(),
-		map[string]*Package{},
-		&spacers,
-		options,
-	}
-
-	return ls
 }
 
 // Load reads in the AST
@@ -180,7 +142,7 @@ func (l *Loader) buildPackage(ls *loaderState, fpath, base string, depth int) (*
 		return nil, nil, err
 	}
 
-	pkg := newPkg(base)
+	pkg := newPkg(cleanPath(base))
 	astPkgs := l.buildAstPackages(buildP, ls)
 
 	for k, v := range astPkgs {
@@ -254,13 +216,15 @@ func (l *Loader) checkDepth(ls *loaderState, pkgName string) bool {
 		return false
 	}
 
+	p = cleanPath(p)
+
 	if d == Shallow {
 		// Only my direct imports
 		return ls.base == pkgName
 	} else if d == Deep {
 		return strings.HasPrefix(p, ls.base)
 	} else if d == Local {
-		return strings.HasPrefix(p, ls.organization)
+		return strings.HasPrefix(p, ls.organizationPath)
 	}
 
 	// Wide: everything that isn't in stdlib.
@@ -298,23 +262,12 @@ func (l *Loader) findSourcePath(pkgName string) (string, error) {
 	return "", fmt.Errorf("Failed to locate package '%s'", pkgName)
 }
 
-func (ls *loaderState) getSpacer(depth int) string {
-	initialSize := len(*ls.spacers)
-	if depth >= initialSize {
-		// Expand the contents
-		targetSize := nextPowerOfTwo(depth + 1)
-		target := make([]string, targetSize)
-		for i := 0; i < initialSize; i++ {
-			target[i] = (*ls.spacers)[i]
-		}
-		for i := initialSize; i < targetSize; i++ {
-			target[i] = strings.Repeat("  ", i)
-		}
-
-		ls.spacers = &target
+func cleanPath(path string) string {
+	idx := strings.LastIndex(path, "vendor")
+	if idx != -1 {
+		path = path[idx+len("vendor")+1:]
 	}
-
-	return (*ls.spacers)[depth]
+	return path
 }
 
 func makeAsts(pkg *ast.Package) *[]*ast.File {
