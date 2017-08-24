@@ -8,13 +8,13 @@ import (
 )
 
 type loaderState struct {
-	base             string
-	organization     string
-	organizationPath string
-	fset             *token.FileSet
-	pkgs             map[string]*Package
-	spacers          *[]string
-	options          *LoaderOptions
+	base    string
+	org     string
+	orgPath string
+	fset    *token.FileSet
+	pkgs    map[string]*Package
+	spacers *[]string
+	options *LoaderOptions
 }
 
 func newLoaderState(pkgName string, options *LoaderOptions) *loaderState {
@@ -27,18 +27,18 @@ func newLoaderState(pkgName string, options *LoaderOptions) *loaderState {
 		spacers[i] = strings.Repeat("  ", i)
 	}
 
-	organization := ""
-	organizationPath := ""
+	org := ""
+	orgPath := ""
 	s := strings.Split(pkgName, "/")
 	if strings.Index(s[0], ".") != -1 {
-		organization = fmt.Sprintf("%s/%s", s[0], s[1])
-		organizationPath = fmt.Sprintf("%s/src/%s/%s", build.Default.GOPATH, s[0], s[1])
+		org = fmt.Sprintf("%s/%s", s[0], s[1])
+		orgPath = fmt.Sprintf("%s/src/%s/%s", build.Default.GOPATH, s[0], s[1])
 	}
 
 	ls := &loaderState{
 		pkgName,
-		organization,
-		organizationPath,
+		org,
+		orgPath,
 		token.NewFileSet(),
 		map[string]*Package{},
 		&spacers,

@@ -224,7 +224,7 @@ func (l *Loader) checkDepth(ls *loaderState, pkgName string) bool {
 	} else if d == Deep {
 		return strings.HasPrefix(p, ls.base)
 	} else if d == Local {
-		return strings.HasPrefix(p, ls.organizationPath)
+		return strings.HasPrefix(p, ls.orgPath)
 	}
 
 	// Wide: everything that isn't in stdlib.

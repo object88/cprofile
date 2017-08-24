@@ -40,6 +40,9 @@ func (p *Package) Globals(fset *token.FileSet) []string {
 		switch v := def.(type) {
 		case *types.Var:
 			parent := v.Parent()
+			if parent == nil {
+				continue
+			}
 			grandparent := parent.Parent()
 			if grandparent != types.Universe {
 				continue
@@ -54,6 +57,7 @@ func (p *Package) Globals(fset *token.FileSet) []string {
 	i := 0
 	for k, v := range globals {
 		results[i] = fmt.Sprintf("%s: %s", k, v)
+		i++
 	}
 
 	return results

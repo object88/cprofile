@@ -12,15 +12,21 @@ func createGlobalsCommand(o *globalOptions) *astCmd {
 		"Returns list of instances of global variables.",
 		"Returns the list of global variables for a program, with file name and offsets.",
 		func(p *cprofile.Program) {
-			pkg, err := p.Package()
-			if err != nil {
-				cprofile.Stderr().Printf("Got error: %s\n", err.Error())
+			globals := []string{}
+			pkgs := p.Imports()
+
+			if len(pkgs) == 0 {
 				return
 			}
 
-			globals := pkg.Globals(p.FileSet())
-			sort.Strings(globals)
+			for _, pkg := range pkgs {
+				gs := pkg.Globals(p.FileSet())
+				for _, v := range gs {
+					globals = append(globals, v)
+				}
+			}
 
+			sort.Strings(globals)
 			stdout := cprofile.Stdout()
 
 			for _, v := range globals {

@@ -1,6 +1,10 @@
 package cprofile
 
 const (
+	// DefaultAstDepth specifies that the AST loader will only inspect the specified
+	// package
+	DefaultAstDepth AstDepth = Shallow
+
 	// DefaultDepth specifies that there is no limit to the number of imports that
 	// the AST loader will delve into
 	DefaultDepth int = -1
@@ -19,7 +23,7 @@ type LoaderOptionsFunc func(lo *LoaderOptions) (*LoaderOptions, error)
 // any provided funcs.
 func NewLoaderOptions(l *Log, funcs ...LoaderOptionsFunc) *LoaderOptions {
 	lo := &LoaderOptions{
-		AstDepth: Shallow,
+		AstDepth: DefaultAstDepth,
 		Depth:    DefaultDepth,
 	}
 
