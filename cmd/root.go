@@ -4,14 +4,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// InitializeCommands sets up the cobra commands
 func InitializeCommands() *cobra.Command {
 	rootCmd := createRootCommand()
 
+	functionsCmd := createFunctionsCommand(rootCmd.o)
 	importsCmd := createImportsCommand(rootCmd.o)
 	globalsCmd := createGlobalsCommand(rootCmd.o)
 	versionCmd := createVersionCommand(rootCmd.o)
 
-	rootCmd.cmd.AddCommand(globalsCmd.cmd, importsCmd.cmd, versionCmd)
+	rootCmd.cmd.AddCommand(functionsCmd.cmd, globalsCmd.cmd, importsCmd.cmd, versionCmd)
 	return rootCmd.cmd
 }
 

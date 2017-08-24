@@ -25,6 +25,33 @@ func newPkg(name string) *Package {
 	return &Package{nil, info, name, nil}
 }
 
+func (p *Package) Functions(fset *token.FileSet, structScoped bool) []string {
+	if p == nil {
+		return []string{}
+	}
+
+	resultMap := map[string]string{}
+	for k, def := range p.info.Defs {
+		if def == nil {
+			continue
+		}
+
+		switch v := def.(type) {
+		case *types.Func:
+			parent := v.Parent()
+			if parent == nil {
+				continue
+			}
+			resultMap[k.Name] = fset.Position(k.Pos()).String()
+		default:
+			continue
+		}
+	}
+
+	results := flattenResultMap(resultMap)
+	return results
+}
+
 // Globals returns a list of global variables in the package
 func (p *Package) Globals(fset *token.FileSet) []string {
 	if p == nil {
@@ -53,13 +80,7 @@ func (p *Package) Globals(fset *token.FileSet) []string {
 		}
 	}
 
-	results := make([]string, len(globals))
-	i := 0
-	for k, v := range globals {
-		results[i] = fmt.Sprintf("%s: %s", k, v)
-		i++
-	}
-
+	results := flattenResultMap(globals)
 	return results
 }
 
@@ -81,4 +102,16 @@ func (p *Package) Imports() ([]*types.Object, error) {
 // Name returns the name of this package.
 func (p *Package) Name() string {
 	return p.name
+}
+
+func flattenResultMap(resultMap map[string]string) []string {
+	results := make([]string, len(resultMap))
+
+	i := 0
+	for k, v := range resultMap {
+		results[i] = fmt.Sprintf("%s: %s", k, v)
+		i++
+	}
+
+	return results
 }
