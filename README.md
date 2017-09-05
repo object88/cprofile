@@ -1,8 +1,10 @@
 # cprofile
 
-Tool to read a process gather useful information about a Go program
+Tool to gather useful information about a Go program
 
 ## Problem
+
+Would like to understand the composition of a partial or complete Go program (library or executable) via AST exporation.
 
 Would like to be able to easily observe performance of Golang programs, sorting and filtering to discover hotspots, with a cross-platform interactive GUI.
 
@@ -14,7 +16,7 @@ This program exposes several tools
 
 Using the `globals` command, one can discover whether there are any instances of global variables in the code.
 
-```sh
+``` shell
 cprofile globals main
 ```
 
