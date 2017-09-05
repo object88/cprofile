@@ -25,7 +25,7 @@ func newPkg(name string) *Package {
 	return &Package{nil, info, name, nil}
 }
 
-func (p *Package) Functions(fset *token.FileSet, structScoped bool) []string {
+func (p *Package) Functions(fset *token.FileSet, scope string) []string {
 	if p == nil {
 		return []string{}
 	}
@@ -39,9 +39,20 @@ func (p *Package) Functions(fset *token.FileSet, structScoped bool) []string {
 		switch v := def.(type) {
 		case *types.Func:
 			parent := v.Parent()
-			if parent == nil {
+			if scope == "universal" {
+				if parent != nil {
+					continue
+				}
+			} else {
+				if parent == nil {
+					continue
+				}
+			}
+
+			if !v.Exported() {
 				continue
 			}
+
 			resultMap[k.Name] = fset.Position(k.Pos()).String()
 		default:
 			continue

@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 
+	"github.com/spf13/pflag"
+
 	"github.com/object88/cprofile"
 	"github.com/spf13/cobra"
 )
@@ -20,6 +22,7 @@ type astSetup struct {
 	shortText string
 	longText  string
 	runner    func(p *cprofile.Program)
+	flags     []func(fs *pflag.FlagSet)
 }
 
 func createAstCommand(o *globalOptions, setup *astSetup) *astCmd {
@@ -40,7 +43,7 @@ func createAstCommand(o *globalOptions, setup *astSetup) *astCmd {
 	}
 
 	astCmd.cmd = c
-	astCmd.ao.AttachFlags(c)
+	astCmd.ao.AttachFlags(c, setup.flags...)
 
 	return astCmd
 }

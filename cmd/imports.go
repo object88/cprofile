@@ -26,6 +26,7 @@ func createImportsCommand(o *globalOptions) *astCmd {
 				stdout.Printf("%s\n", v.Name())
 			}
 		},
+		nil,
 	}
 
 	importsCmd := createAstCommand(o, astSetup)

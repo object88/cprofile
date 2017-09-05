@@ -5,6 +5,7 @@ import (
 
 	"github.com/object88/cprofile"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 var optionFuncs []cprofile.LoaderOptionsFunc
@@ -30,10 +31,13 @@ type astOptions struct {
 	depth    int
 }
 
-func (ao *astOptions) AttachFlags(cmd *cobra.Command) {
+func (ao *astOptions) AttachFlags(cmd *cobra.Command, flagAdders ...func(fs *pflag.FlagSet)) {
 	fs := cmd.Flags()
 	fs.StringVarP(&ao.astDepth, "astDepth", "a", "s", "AST depth")
 	fs.IntVarP(&ao.depth, "depth", "d", cprofile.DefaultDepth, "Depth")
+	for _, v := range flagAdders {
+		v(fs)
+	}
 }
 
 func (ao *astOptions) ProcessFlags(cmd *cobra.Command, funcs []cprofile.LoaderOptionsFunc) []cprofile.LoaderOptionsFunc {

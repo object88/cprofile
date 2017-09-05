@@ -33,6 +33,7 @@ func createGlobalsCommand(o *globalOptions) *astCmd {
 				stdout.Printf("%s\n", v)
 			}
 		},
+		nil,
 	}
 
 	globalsCmd := createAstCommand(o, astSetup)

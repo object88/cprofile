@@ -4,9 +4,16 @@ import (
 	"sort"
 
 	"github.com/object88/cprofile"
+	"github.com/spf13/pflag"
+)
+
+const (
+	Universal int = iota
 )
 
 func createFunctionsCommand(o *globalOptions) *astCmd {
+	var scope string
+
 	astSetup := &astSetup{
 		"functions",
 		"Returns list of public functions.",
@@ -20,7 +27,7 @@ func createFunctionsCommand(o *globalOptions) *astCmd {
 			}
 
 			for _, pkg := range pkgs {
-				fns := pkg.Functions(p.FileSet(), false)
+				fns := pkg.Functions(p.FileSet(), scope)
 				for _, v := range fns {
 					functions = append(functions, v)
 				}
@@ -32,6 +39,11 @@ func createFunctionsCommand(o *globalOptions) *astCmd {
 			for _, v := range functions {
 				stdout.Printf("%s\n", v)
 			}
+		},
+		[]func(fs *pflag.FlagSet){
+			func(fs *pflag.FlagSet) {
+				fs.StringVarP(&scope, "scope", "s", "u", "Scope")
+			},
 		},
 	}
 
